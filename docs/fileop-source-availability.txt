@@ -1,0 +1,21 @@
+FLDR source availability
+
+FLDR is based on Atlas by the Atlas contributors.
+FLDR modifications: Copyright (c) 2026 LW.
+
+Application license: AGPL-3.0-or-later.
+Third-party components retain their respective licenses.
+
+FLDR source repository:
+https://github.com/digart11/FLDR
+
+Official releases:
+https://github.com/digart11/FLDR/releases
+
+Original upstream project:
+https://github.com/neondeex/atlas-filemanager
+
+Matching corresponding source and build instructions must be
+available for every distributed FLDR executable.
+
+See LICENSE, NOTICE and legal/ for additional licensing information.

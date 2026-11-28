@@ -1,0 +1,27 @@
+[package]
+name = "atlas-model"
+version = "1.0.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/digart11/FLDR"
+homepage = "https://github.com/digart11/FLDR"
+
+[features]
+# Build-time edition policy, independent of the UI and provider host.
+free = []
+# Virtual location request/result models used by the provider host.
+default = ["provider-host"]
+provider-host = []
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+toml = "0.8"
+dirs.workspace = true
+compact_str = { version = "0.9", features = ["serde"] }
+chrono = "0.4"
+uuid = { version = "1", features = ["v4"] }
+
+[lints]
+workspace = true

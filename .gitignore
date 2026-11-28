@@ -1,0 +1,96 @@
+/target
+/target-verify/
+__pycache__/
+
+build*.txt
+*_out.txt
+*.bak
+*.orig
+*.rej
+# Local vendored-binary scratch; keep the embedded UnRAR binary tracked.
+crates/atlas-core/vendor/unrar-bin/*
+!crates/atlas-core/vendor/unrar-bin/UnRAR.exe
+.env
+
+# Local logs and stray Windows device-name files
+*.log
+atlas_err.log
+atlas_out.log
+perf-logs/
+perf-details-element.summary.txt
+nul
+**/nul
+
+# Vendored forks are committed; their build output is not.
+vendor/**/target/
+vendor/**/node_modules/
+vendor/**/.next/
+
+# Profiling artifacts (dhat, perf captures)
+dhat-*.json
+
+# Scratch/test archives used during local development
+test.zip
+test2.rar
+test_arc/
+scratch_*.py
+/test_*.rs
+
+# Machine-specific transfer benchmark results; regenerate with the harness.
+docs/transfer-benchmarks.md
+
+# Unrelated local checkouts / generated side projects
+website/
+
+# Upstream GPUI project automation and development files stay local.
+/vendor/gpui-ce/.github/
+/vendor/gpui-ce/docs/
+/vendor/gpui-ce/scripts/
+/vendor/gpui-ce/CONTRIBUTING.md
+/vendor/gpui-ce/SETUP.md
+/vendor/gpui-ce/flake.lock
+/vendor/gpui-ce/flake.nix
+/vendor/gpui-ce/audit.toml
+/vendor/gpui-ce/deny.toml
+/vendor/gpui-ce/justfile
+/vendor/gpui-ce/rheo.toml
+/vendor/gpui-ce/typos.toml
+
+# Local verification builds and generated test executables
+/target-coreverify/
+/target-nativeverify/
+/artifacts/*.exe
+/artifacts/*.pdb
+/artifacts/certification-runs/
+
+# Local-only scratch
+/artifacts/
+/website/
+/website-edge/
+/python/
+/.playwright-cli/
+/New file*
+/patch.diff
+/profiling_summary.txt
+target*/
+leaks*.json
+
+# Generated code analysis
+/crates/graphify-out/
+
+
+# Local development and release materials
+/Releases/
+/fileop_icon.png
+/.env.example
+/scripts/migrate-fldr-shortcuts.ps1
+/scripts/update-fileop-icon.ps1
+/.github/workflows/ci.yml
+*.psd
+
+# Private development reports
+/docs/file-interactions-group-1.md
+/docs/fldr-folder-loading-first-optimization.md
+/docs/fldr-jpeg-thumbnail-optimization.md
+/docs/fldr-rename-handoff.md
+/docs/local-first-startup.md

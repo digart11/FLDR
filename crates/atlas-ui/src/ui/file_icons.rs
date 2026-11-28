@@ -1,0 +1,196 @@
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use gpui::{img, AnyElement, Hsla, IntoElement, RenderImage, Styled};
+
+use crate::app::App;
+use crate::ui::icons::file_type_icon;
+use atlas_model::file_entry::FileKind;
+
+#[derive(Clone)]
+pub(crate) struct FileIconRef {
+    pub(crate) path: PathBuf,
+    pub(crate) kind: FileKind,
+    pub(crate) extension: Option<gpui::SharedString>,
+}
+
+#[derive(Clone)]
+pub(crate) enum IconTexture {
+    Single(Arc<RenderImage>),
+    Multi(Arc<crate::icon_theme::MultiResIcon>),
+}
+
+impl IconTexture {
+    #[inline]
+    pub(crate) fn for_size(&self, px: f32) -> Arc<RenderImage> {
+        match self {
+            Self::Single(tex) => tex.clone(),
+            Self::Multi(multi) => multi.for_size(px),
+        }
+    }
+
+    #[inline]
+    #[allow(dead_code)]
+    pub(crate) fn single(&self) -> Arc<RenderImage> {
+        match self {
+            Self::Single(tex) => tex.clone(),
+            Self::Multi(multi) => multi.full.clone(),
+        }
+    }
+}
+
+impl From<Arc<RenderImage>> for IconTexture {
+    fn from(tex: Arc<RenderImage>) -> Self {
+        Self::Single(tex)
+    }
+}
+
+impl From<Arc<crate::icon_theme::MultiResIcon>> for IconTexture {
+    fn from(multi: Arc<crate::icon_theme::MultiResIcon>) -> Self {
+        Self::Multi(multi)
+    }
+}
+
+#[derive(Clone)]
+pub(crate) enum FileIcon {
+    PreviewTexture(Arc<RenderImage>),
+    IconTexture(IconTexture),
+    Builtin {
+        kind: FileKind,
+        extension: Option<gpui::SharedString>,
+    },
+}
+
+impl FileIcon {
+    pub(crate) fn element(self, size: f32, _color: Hsla) -> AnyElement {
+        match self {
+            Self::PreviewTexture(tex) => img(tex)
+                .size(crate::ui::rem_px(size))
+                .flex_none()
+                .into_any_element(),
+            Self::IconTexture(tex) => img(move |window: &mut gpui::Window, _: &mut gpui::App| {
+                // Match the displayed rem size; the tier selector applies DPI separately.
+                let logical_size = f32::from(crate::ui::rem_px_abs(size, window));
+                Some(Ok(tex.for_size(logical_size)))
+            })
+                .size(crate::ui::rem_px(size))
+                .flex_none()
+                .into_any_element(),
+            Self::Builtin { kind, extension } => file_type_icon(&kind, extension.as_deref(), size),
+        }
+    }
+
+    pub(crate) fn texture(&self) -> Option<Arc<RenderImage>> {
+        self.texture_for_size(24.0)
+    }
+
+    pub(crate) fn texture_for_size(&self, px: f32) -> Option<Arc<RenderImage>> {
+        match self {
+            Self::PreviewTexture(tex) => Some(tex.clone()),
+            Self::IconTexture(tex) => Some(tex.for_size(px)),
+            Self::Builtin { .. } => None,
+        }
+    }
+}
+
+impl App {
+    /// True when file rows should use native Windows Shell icons. Follows the
+    /// user's icon style; `Auto` ties it to the "Atlas Windows" themes.
+    pub(crate) fn native_file_icons(&self) -> bool {
+        use atlas_model::settings::IconStyle;
+        match self.state.settings.icon_style {
+            IconStyle::Auto => cfg!(windows),
+            IconStyle::Windows => cfg!(windows),
+            IconStyle::Theme => false,
+        }
+    }
+
+    pub(crate) fn file_icon_ref_for_path(path: PathBuf, is_dir: bool) -> FileIconRef {
+        let kind = if is_dir {
+            FileKind::Dir
+        } else {
+            FileKind::File
+        };
+        let extension = path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.to_ascii_lowercase());
+        FileIconRef {
+            path,
+            kind,
+            extension: extension.map(gpui::SharedString::from),
+        }
+    }
+
+    /// Icon for compact rows (details/list/tree/miller/palette): in Windows themes
+    /// always the plain Shell file-type icon — never a thumbnail or content peek.
+    pub(crate) fn row_icon_for_entry(
+        &self,
+        path: &Path,
+        kind: &FileKind,
+        extension: Option<&str>,
+    ) -> FileIcon {
+        #[cfg(target_os = "windows")]
+        if self.native_file_icons() {
+            let tex = if matches!(kind, FileKind::Dir) {
+                self.shell_folder_icon_for_path(path)
+            } else {
+                self.shell_type_icon(path)
+            };
+            if let Some(tex) = tex {
+                return FileIcon::IconTexture(IconTexture::Multi(tex));
+            }
+        } else if let Some(tex) = self.grid_thumbnail(path) {
+            return FileIcon::PreviewTexture(tex);
+        }
+        self.file_icon_fallback(kind, extension)
+    }
+
+    fn file_icon_fallback(&self, kind: &FileKind, extension: Option<&str>) -> FileIcon {
+        if let Some(multi) = self.multi_res_icon_for_entry(kind, extension) {
+            return FileIcon::IconTexture(IconTexture::Multi(multi));
+        }
+        FileIcon::Builtin { kind: kind.clone(), extension: extension.map(gpui::SharedString::from) }
+    }
+
+    pub(crate) fn file_icon_for_entry(
+        &self,
+        path: &Path,
+        kind: &FileKind,
+        extension: Option<&str>,
+    ) -> FileIcon {
+        #[cfg(target_os = "windows")]
+        if matches!(kind, FileKind::Dir) && self.native_file_icons() {
+            if let Some(tex) = self.shell_folder_icon_for_path(path) {
+                return FileIcon::IconTexture(IconTexture::Multi(tex));
+            }
+        }
+        // Directory icons have one path-specific source in every file view;
+        // navigation/sidebar thumbnail caches cannot replace their identity.
+        if !matches!(kind, FileKind::Dir) || !self.native_file_icons() {
+            if let Some(tex) = self.grid_thumbnail(path) { return FileIcon::PreviewTexture(tex); }
+        }
+        #[cfg(target_os = "windows")]
+        if !matches!(kind, FileKind::Dir) && self.native_file_icons() {
+            if let Some(tex) = self.shell_type_icon(path) {
+                return FileIcon::IconTexture(IconTexture::Multi(tex));
+            }
+        }
+        self.file_icon_fallback(kind, extension)
+    }
+
+    pub(crate) fn file_icon(&self, file: &FileIconRef) -> FileIcon {
+        self.row_icon_for_entry(&file.path, &file.kind, file.extension.as_deref())
+    }
+
+    pub(crate) fn maybe_request_file_icon(&mut self, file: &FileIconRef) {
+        #[cfg(target_os = "windows")]
+        if self.native_file_icons() {
+            if matches!(file.kind, FileKind::Dir) {
+                self.request_shell_folder_icon_for_path(&file.path);
+            } else {
+                self.request_shell_type_icon(&file.path);
+            }
+        }
+    }
+}
